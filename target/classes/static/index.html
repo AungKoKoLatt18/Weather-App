@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather</title>
+<style>
+  :root { --bg:#eef3f9; --card:#fff; --text:#1c2733; --muted:#6b7a8c; --accent:#2f6fed; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#10161d; --card:#1a232d; --text:#e8eef5; --muted:#8a99ab; --accent:#5b93ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text);
+         min-height:100vh; display:flex; justify-content:center; padding:2rem 1rem; }
+  main { width:100%; max-width:480px; }
+  h1 { font-size:1.4rem; margin:0 0 1rem; }
+  form { display:flex; gap:.5rem; margin-bottom:1rem; }
+  input { flex:1; padding:.7rem .9rem; border-radius:10px; border:1px solid var(--muted);
+          background:var(--card); color:var(--text); font-size:1rem; }
+  button { padding:.7rem 1.1rem; border:0; border-radius:10px; background:var(--accent);
+           color:#fff; font-size:1rem; cursor:pointer; }
+  .card { background:var(--card); border-radius:16px; padding:1.25rem; margin-bottom:1rem; }
+  .now { text-align:center; }
+  .icon { font-size:3.5rem; }
+  .temp { font-size:3rem; font-weight:600; }
+  .muted { color:var(--muted); }
+  .stats { display:flex; justify-content:center; gap:1.5rem; margin-top:.5rem; }
+  .day { display:flex; justify-content:space-between; align-items:center; padding:.5rem 0;
+         border-bottom:1px solid rgba(128,128,128,.2); }
+  .day:last-child { border:0; }
+  .error { color:#d64545; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Weather</h1>
+  <form id="form">
+    <input id="city" placeholder="Search a city..." value="Karabük" required>
+    <button>Search</button>
+  </form>
+  <div id="out"></div>
+</main>
+
+<script>
+const CODES = {
+  0:["☀️","Clear sky"],1:["🌤️","Mostly clear"],2:["⛅","Partly cloudy"],3:["☁️","Overcast"],
+  45:["🌫️","Fog"],48:["🌫️","Rime fog"],51:["🌦️","Light drizzle"],53:["🌦️","Drizzle"],55:["🌧️","Heavy drizzle"],
+  61:["🌧️","Light rain"],63:["🌧️","Rain"],65:["🌧️","Heavy rain"],
+  71:["🌨️","Light snow"],73:["🌨️","Snow"],75:["❄️","Heavy snow"],
+  80:["🌦️","Rain showers"],81:["🌧️","Rain showers"],82:["⛈️","Violent showers"],
+  95:["⛈️","Thunderstorm"],96:["⛈️","Thunderstorm, hail"],99:["⛈️","Thunderstorm, hail"]
+};
+const info = c => CODES[c] || ["🌡️","Unknown"];
+const out = document.getElementById("out");
+
+async function load(city) {
+  out.innerHTML = '<p class="muted" style="text-align:center">Loading…</p>';
+  try {
+    const res = await fetch("/api/weather?city=" + encodeURIComponent(city));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Something went wrong");
+    render(data);
+  } catch (e) {
+    out.innerHTML = `<p class="error">${e.message}</p>`;
+  }
+}
+
+function render(d) {
+  const [icon, label] = info(d.current.weatherCode);
+  const days = d.forecast.map(day => {
+    const [i, l] = info(day.weatherCode);
+    const name = new Date(day.date).toLocaleDateString(undefined, {weekday:"short"});
+    return `<div class="day"><span>${name}</span><span title="${l}">${i}</span>
+            <span>${Math.round(day.maxTemp)}° <span class="muted">${Math.round(day.minTemp)}°</span></span></div>`;
+  }).join("");
+
+  out.innerHTML = `
+    <div class="card now">
+      <div class="muted">${d.city}, ${d.country}</div>
+      <div class="icon">${icon}</div>
+      <div class="temp">${Math.round(d.current.temperature)}°C</div>
+      <div>${label}</div>
+      <div class="stats muted">
+        <span>💧 ${d.current.humidity}%</span>
+        <span>💨 ${d.current.windSpeed} km/h</span>
+      </div>
+    </div>
+    <div class="card">${days}</div>`;
+}
+
+document.getElementById("form").addEventListener("submit", e => {
+  e.preventDefault();
+  load(document.getElementById("city").value);
+});
+load("Karabük");
+</script>
+</body>
+</html>
